@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://emeka-ugbanu-hub.github.io/Wallcraft/sitemap.xml
