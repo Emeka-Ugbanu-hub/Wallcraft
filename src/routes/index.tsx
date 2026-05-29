@@ -145,6 +145,7 @@ function Index() {
   const [gifLoading, setGifLoading] = useState(false);
   const [gifError, setGifError] = useState<string | null>(null);
   const [addingGifId, setAddingGifId] = useState<string | null>(null);
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
   const gifSearchSeq = useRef(0);
   const gifSearchAbortRef = useRef<AbortController | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -459,6 +460,7 @@ function Index() {
 
   async function selectGif(result: GifResult) {
     setAddingGifId(result.id);
+    setExportNotice(null);
     mediaFileRef.current = null;
     pushHistory();
     setMedia(result.thumb);
@@ -467,10 +469,15 @@ function Index() {
 
     try {
       setMedia((current) => (current === result.thumb ? result.full : current));
-      const src = await toDataUrlSafe(result.full);
+      const fullData = await toDataUrlSafe(result.full);
+      const src = fullData.startsWith("data:") ? fullData : await toDataUrlSafe(result.thumb);
       setMedia((current) => (current === result.full || current === result.thumb ? src : current));
+      if (!src.startsWith("data:")) {
+        setExportNotice("GIF preview is visible, but this source may not export due to CORS.");
+      }
     } catch {
       // Keep direct URL in preview if conversion fails.
+      setExportNotice("GIF preview is visible, but this source may not export due to CORS.");
     } finally {
       setAddingGifId((current) => (current === result.id ? null : current));
     }
@@ -478,26 +485,31 @@ function Index() {
 
   async function download() {
     if (!canvasRef.current) return;
+    setExportNotice(null);
     setIsExporting(true);
     await new Promise((resolve) => window.setTimeout(resolve, 40));
 
     try {
-      const node = canvasRef.current;
-      const rect = node.getBoundingClientRect();
-      const scaleX = meta.width / Math.max(1, rect.width);
-      const scaleY = meta.height / Math.max(1, rect.height);
-      const pixelRatio = Math.min(scaleX, scaleY);
-      const dataUrl = await toPng(node, {
-        cacheBust: true,
-        pixelRatio,
-        backgroundColor: bg.value,
-      });
+      if (media && !media.startsWith("data:")) {
+        setExportNotice("Preparing media for export...");
+        const embedded = await toDataUrlSafe(media);
+        if (embedded.startsWith("data:")) {
+          setMedia(embedded);
+          await new Promise((resolve) => window.setTimeout(resolve, 80));
+        } else {
+          setExportNotice("Cannot export this GIF source. Pick another GIF or upload directly.");
+          return;
+        }
+      }
+
+      const dataUrl = await renderExportClone(canvasRef.current, meta, bg.value);
       const link = document.createElement("a");
       link.href = dataUrl;
       link.download = `bitmap-wallpaper-${format}-${Date.now()}.png`;
       link.click();
     } finally {
       setIsExporting(false);
+      window.setTimeout(() => setExportNotice(null), 2400);
     }
   }
 
@@ -991,8 +1003,11 @@ function Index() {
               onClick={download}
             >
               <Download className="h-3.5 w-3.5" />
-              {isExporting ? "Rendering" : "Quick PNG"}
+              {isExporting ? "Rendering" : "Download Wallpaper"}
             </button>
+            {exportNotice && (
+              <p className="text-[10px] uppercase tracking-[0.12em] opacity-80">{exportNotice}</p>
+            )}
             <button
               className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em]"
               onClick={() => {
@@ -1805,6 +1820,85 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
+async function renderExportClone(
+  source: HTMLElement,
+  meta: { width: number; height: number },
+  bgColor: string,
+): Promise<string> {
+  const host = document.createElement("div");
+  const clone = source.cloneNode(true) as HTMLElement;
+
+  host.style.position = "fixed";
+  host.style.left = "-100000px";
+  host.style.top = "0";
+  host.style.width = `${meta.width}px`;
+  host.style.height = `${meta.height}px`;
+  host.style.overflow = "hidden";
+  host.style.pointerEvents = "none";
+  host.style.zIndex = "-1";
+
+  clone.classList.add("is-exporting");
+  clone.style.width = `${meta.width}px`;
+  clone.style.height = `${meta.height}px`;
+  clone.style.maxWidth = "none";
+  clone.style.maxHeight = "none";
+  clone.style.margin = "0";
+  clone.style.aspectRatio = `${meta.width} / ${meta.height}`;
+  clone.style.backgroundColor = bgColor;
+
+  clone.querySelectorAll(".bitmap-selection-toolbar, .bitmap-resize-handle").forEach((node) => {
+    node.remove();
+  });
+  clone.querySelectorAll(".bitmap-canvas-object").forEach((node) => {
+    node.classList.remove("is-selected");
+  });
+
+  host.appendChild(clone);
+  document.body.appendChild(host);
+
+  try {
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await waitForImages(clone);
+    return await toPng(clone, {
+      cacheBust: true,
+      width: meta.width,
+      height: meta.height,
+      canvasWidth: meta.width,
+      canvasHeight: meta.height,
+      pixelRatio: 1,
+      backgroundColor: bgColor,
+      skipAutoScale: true,
+      skipFonts: true,
+    });
+  } finally {
+    host.remove();
+  }
+}
+
+async function waitForImages(root: HTMLElement): Promise<void> {
+  const images = Array.from(root.querySelectorAll("img"));
+  await Promise.all(
+    images.map(
+      (image) =>
+        new Promise<void>((resolve) => {
+          if (image.complete && image.naturalWidth > 0) {
+            resolve();
+            return;
+          }
+
+          const done = () => {
+            image.removeEventListener("load", done);
+            image.removeEventListener("error", done);
+            resolve();
+          };
+
+          image.addEventListener("load", done, { once: true });
+          image.addEventListener("error", done, { once: true });
+        }),
+    ),
+  );
+}
+
 async function ditherImage(
   file: File,
   bgColor: string,
@@ -1931,21 +2025,25 @@ function rgbDistance(r: number, g: number, b: number, target: { r: number; g: nu
 }
 
 async function searchTenorGifs(query: string, signal?: AbortSignal): Promise<GifResult[]> {
-  const v2Params = new URLSearchParams({
-    q: query,
-    key: TENOR_KEY,
-    client_key: "wallposter",
-    limit: "16",
-    media_filter: "tinygif,gif",
-    contentfilter: "medium",
-  });
-  const v2Url = `https://tenor.googleapis.com/v2/search?${v2Params.toString()}`;
-  const primary = await fetch(v2Url, { signal });
+  const useLegacyOnly = TENOR_KEY === "LIVDSRZULELA";
 
-  if (primary.ok) {
-    const payload = (await primary.json()) as { results?: TenorResult[] };
-    const results = mapTenorV2(payload.results ?? []);
-    if (results.length > 0) return results;
+  if (!useLegacyOnly) {
+    const v2Params = new URLSearchParams({
+      q: query,
+      key: TENOR_KEY,
+      client_key: "wallposter",
+      limit: "16",
+      media_filter: "tinygif,gif",
+      contentfilter: "medium",
+    });
+    const v2Url = `https://tenor.googleapis.com/v2/search?${v2Params.toString()}`;
+    const primary = await fetch(v2Url, { signal });
+
+    if (primary.ok) {
+      const payload = (await primary.json()) as { results?: TenorResult[] };
+      const results = mapTenorV2(payload.results ?? []);
+      if (results.length > 0) return results;
+    }
   }
 
   const v1Params = new URLSearchParams({
@@ -1957,9 +2055,7 @@ async function searchTenorGifs(query: string, signal?: AbortSignal): Promise<Gif
   });
   const v1Url = `https://g.tenor.com/v1/search?${v1Params.toString()}`;
   const fallback = await fetch(v1Url, { signal });
-  if (!fallback.ok) {
-    throw new Error(`tenor ${primary.status}/${fallback.status}`);
-  }
+  if (!fallback.ok) return [];
   const legacyPayload = (await fallback.json()) as { results?: TenorLegacyResult[] };
   return mapTenorLegacy(legacyPayload.results ?? []);
 }
