@@ -40,7 +40,8 @@ export const Route = createFileRoute("/")({
       { title: "Wallcraft — Monochrome Bitmap Wallpaper Creator" },
       {
         name: "description",
-        content: "Create raw monochrome bitmap wallpapers for mobile and desktop. Design with curated creative packs.",
+        content:
+          "Create raw monochrome bitmap wallpapers for mobile and desktop. Design with curated creative packs.",
       },
     ],
   }),
@@ -126,12 +127,12 @@ function Index() {
   const [mediaLocked, setMediaLocked] = useState(false);
   const [snapEnabled, setSnapEnabled] = useState(false);
   const [showCheatsheet, setShowCheatsheet] = useState(false);
+  const [showHighlightHelp, setShowHighlightHelp] = useState(false);
   const [font, setFont] = useState(FONT_OPTIONS[0]);
   const [fontWeight, setFontWeight] = useState<FontWeight>(900);
   const [textColor, setTextColor] = useState(BACKGROUNDS[2].ink);
   const [highlightWordIndex, setHighlightWordIndex] = useState<number | null>(null);
   const [highlightColor, setHighlightColor] = useState(BACKGROUNDS[2].value);
-  const [highlightFill, setHighlightFill] = useState(BACKGROUNDS[2].ink);
   const [fontSizeScale, setFontSizeScale] = useState(100);
   const [lineSpacing, setLineSpacing] = useState(0.9);
   const [letterSpacing, setLetterSpacing] = useState(-0.12);
@@ -146,6 +147,7 @@ function Index() {
   const [isExporting, setIsExporting] = useState(false);
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const mediaFileRef = useRef<File | null>(null);
 
@@ -206,7 +208,6 @@ function Index() {
       textColor,
       highlightWordIndex,
       highlightColor,
-      highlightFill,
     }),
     [
       text,
@@ -229,7 +230,6 @@ function Index() {
       textColor,
       highlightWordIndex,
       highlightColor,
-      highlightFill,
     ],
   );
 
@@ -262,13 +262,33 @@ function Index() {
     if (snap.highlightWordIndex !== undefined)
       setHighlightWordIndex(snap.highlightWordIndex as number | null);
     if (snap.highlightColor !== undefined) setHighlightColor(snap.highlightColor as string);
-    if (snap.highlightFill !== undefined) setHighlightFill(snap.highlightFill as string);
   }, []);
 
   useEffect(() => {
     if (highlightWordIndex === null) return;
     if (highlightWordIndex >= textWords.length) setHighlightWordIndex(null);
   }, [highlightWordIndex, textWords.length]);
+
+  function setHighlightFromSelection() {
+    const input = textRef.current;
+    if (!input) return;
+    const start = input.selectionStart ?? 0;
+    const end = input.selectionEnd ?? 0;
+    if (end <= start) return;
+
+    const mid = Math.floor((start + end) / 2);
+    const source = input.value;
+    const matches = [...source.matchAll(/\S+/g)];
+    for (let i = 0; i < matches.length; i++) {
+      const match = matches[i];
+      const index = match.index ?? 0;
+      const wordEnd = index + match[0].length;
+      if (mid >= index && mid <= wordEnd) {
+        setHighlightWordIndex(i);
+        return;
+      }
+    }
+  }
 
   const pushHistory = useCallback(() => {
     history.current.push(captureSnapshot());
@@ -581,10 +601,48 @@ function Index() {
           </div>
 
           <div className="space-y-7">
-            <Control label="Text">
+            <div className="block">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="block text-[11px] font-bold uppercase tracking-[0.2em]">Text</span>
+                <div className="relative">
+                  <button
+                    className="bitmap-info-trigger"
+                    type="button"
+                    title="How highlight works"
+                    onClick={() => setShowHighlightHelp((prev) => !prev)}
+                  >
+                    <Info className="h-4 w-4" />
+                  </button>
+                  {showHighlightHelp && (
+                    <div className="absolute right-0 top-7 z-20 w-[280px] border border-[#4c4d4d] bg-[#e2e3e1] p-3 shadow-[0_8px_20px_rgba(0,0,0,0.18)]">
+                      <div className="mb-2 flex items-center justify-between">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em]">
+                          Word Highlight
+                        </p>
+                        <button
+                          className="bitmap-choice text-[10px]"
+                          onClick={() => setShowHighlightHelp(false)}
+                        >
+                          Close
+                        </button>
+                      </div>
+                      <ol className="space-y-1.5 text-[10px] uppercase tracking-[0.12em]">
+                        <li>1. Type text in the input.</li>
+                        <li>2. Select a word in the input.</li>
+                        <li>3. Use top color chips to recolor that word.</li>
+                        <li>4. Clear selection to edit all text color.</li>
+                      </ol>
+                    </div>
+                  )}
+                </div>
+              </div>
               <textarea
+                ref={textRef}
                 value={text}
                 onChange={(e) => setText(e.target.value.slice(0, MAX_CHARS))}
+                onSelect={setHighlightFromSelection}
+                onKeyUp={setHighlightFromSelection}
+                onMouseUp={setHighlightFromSelection}
                 rows={3}
                 placeholder="TYPE A WORD"
                 className="bitmap-input min-h-28 resize-none"
@@ -599,14 +657,24 @@ function Index() {
                 {textPalette.map((option) => (
                   <button
                     key={option.label}
-                    className={`bitmap-colorchip ${textColor === option.value ? "is-active" : ""}`}
-                    onClick={() => setTextColor(option.value)}
+                    className={`bitmap-colorchip ${
+                      (highlightWordIndex !== null ? highlightColor : textColor) === option.value
+                        ? "is-active"
+                        : ""
+                    }`}
+                    onClick={() => {
+                      if (highlightWordIndex !== null) {
+                        setHighlightColor(option.value);
+                        return;
+                      }
+                      setTextColor(option.value);
+                    }}
                     style={{ backgroundColor: option.value }}
                     title={option.label}
                   />
                 ))}
               </div>
-            </Control>
+            </div>
 
             <Control label="Typeface">
               <select
@@ -672,48 +740,15 @@ function Index() {
               </label>
               <div className="mt-2 border border-[#4c4d4d] p-2">
                 <p className="text-[10px] uppercase tracking-[0.14em]">Word Highlight</p>
-                <select
-                  className="bitmap-select mt-1"
-                  value={highlightWordIndex === null ? "" : String(highlightWordIndex)}
-                  onChange={(e) =>
-                    setHighlightWordIndex(e.target.value === "" ? null : Number(e.target.value))
-                  }
+                <p className="mt-1 text-[10px] uppercase tracking-[0.12em] opacity-70">
+                  Use the info icon on the text box for quick steps.
+                </p>
+                <button
+                  className="bitmap-choice mt-2 w-full text-[10px]"
+                  onClick={() => setHighlightWordIndex(null)}
                 >
-                  <option value="">None</option>
-                  {textWords.map((word, i) => (
-                    <option key={`${word}-${i}`} value={i}>
-                      {word}
-                    </option>
-                  ))}
-                </select>
-                {highlightWordIndex !== null && (
-                  <>
-                    <p className="mt-2 text-[10px] uppercase tracking-[0.14em]">Word Color</p>
-                    <div className="mt-1 grid grid-cols-4 gap-1">
-                      {textPalette.map((option) => (
-                        <button
-                          key={`word-color-${option.label}`}
-                          className={`bitmap-colorchip ${highlightColor === option.value ? "is-active" : ""}`}
-                          onClick={() => setHighlightColor(option.value)}
-                          style={{ backgroundColor: option.value }}
-                          title={option.label}
-                        />
-                      ))}
-                    </div>
-                    <p className="mt-2 text-[10px] uppercase tracking-[0.14em]">Word Fill</p>
-                    <div className="mt-1 grid grid-cols-4 gap-1">
-                      {textPalette.map((option) => (
-                        <button
-                          key={`word-fill-${option.label}`}
-                          className={`bitmap-colorchip ${highlightFill === option.value ? "is-active" : ""}`}
-                          onClick={() => setHighlightFill(option.value)}
-                          style={{ backgroundColor: option.value }}
-                          title={option.label}
-                        />
-                      ))}
-                    </div>
-                  </>
-                )}
+                  Clear Highlight
+                </button>
               </div>
             </Control>
 
@@ -996,12 +1031,7 @@ function Index() {
                       startBoxMove(e, canvasRef, textBox, setTextBox);
                     }}
                   >
-                    {renderTextWithHighlight(
-                      textLines,
-                      highlightWordIndex,
-                      highlightColor,
-                      highlightFill,
-                    )}
+                    {renderTextWithHighlight(textLines, highlightWordIndex, highlightColor)}
                     {selectedElement === "text" && (
                       <ResizeHandles
                         onResize={(e, handle) =>
@@ -1076,7 +1106,12 @@ function Index() {
                     onPointerDown={(e) => {
                       setSelectedElement(`decoration:${asset.id}`);
                       if (asset.locked) return;
-                      startDrag(e, canvasRef, (point) => moveDecoration(asset.id, point), pushHistory);
+                      startDrag(
+                        e,
+                        canvasRef,
+                        (point) => moveDecoration(asset.id, point),
+                        pushHistory,
+                      );
                     }}
                     aria-label={`Move ${asset.kind}`}
                   >
@@ -1084,7 +1119,13 @@ function Index() {
                     {selectedElement === `decoration:${asset.id}` && (
                       <ResizeHandles
                         onResize={(e) =>
-                          startAssetResize(e, canvasRef, asset, (nextSize) => resizeDecoration(asset.id, nextSize), pushHistory)
+                          startAssetResize(
+                            e,
+                            canvasRef,
+                            asset,
+                            (nextSize) => resizeDecoration(asset.id, nextSize),
+                            pushHistory,
+                          )
                         }
                       />
                     )}
@@ -1133,6 +1174,7 @@ function Index() {
           </div>
         </div>
       )}
+
     </main>
   );
 }
@@ -1600,7 +1642,6 @@ function renderTextWithHighlight(
   lines: string[],
   highlightedWordIndex: number | null,
   highlightColor: string,
-  highlightFill: string,
 ) {
   let tokenIndex = 0;
   return lines.map((line, lineIndex) => {
@@ -1617,8 +1658,10 @@ function renderTextWithHighlight(
                 isHighlighted
                   ? {
                       color: highlightColor,
-                      backgroundColor: highlightFill,
-                      padding: "0 0.08em",
+                      fontWeight: 900,
+                      textDecoration: "underline",
+                      textDecorationThickness: "0.06em",
+                      textUnderlineOffset: "0.08em",
                     }
                   : undefined
               }
