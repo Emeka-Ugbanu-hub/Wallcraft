@@ -146,6 +146,7 @@ function Index() {
   const [gifError, setGifError] = useState<string | null>(null);
   const [addingGifId, setAddingGifId] = useState<string | null>(null);
   const gifSearchSeq = useRef(0);
+  const gifSearchAbortRef = useRef<AbortController | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -409,17 +410,28 @@ function Index() {
   }
 
   async function searchGifs() {
-    const q = gifQuery.trim() || normalizedText || "monochrome";
-    if (!q) return;
+    const q = gifQuery.trim();
+    if (q.length < 2) {
+      gifSearchSeq.current += 1;
+      gifSearchAbortRef.current?.abort();
+      setGifLoading(false);
+      setGifError(null);
+      setGifResults([]);
+      return;
+    }
     const seq = ++gifSearchSeq.current;
+    gifSearchAbortRef.current?.abort();
+    const controller = new AbortController();
+    gifSearchAbortRef.current = controller;
     setGifLoading(true);
     setGifError(null);
     try {
-      const results = await searchTenorGifs(q);
+      const results = await searchTenorGifs(q, controller.signal);
       if (seq !== gifSearchSeq.current) return;
       setGifResults(results);
     } catch (error) {
       if (seq !== gifSearchSeq.current) return;
+      if (error instanceof Error && error.name === "AbortError") return;
       setGifResults([]);
       setGifError(error instanceof Error ? error.message : "GIF search failed");
     } finally {
@@ -429,8 +441,9 @@ function Index() {
 
   useEffect(() => {
     const q = gifQuery.trim();
-    if (!q) {
+    if (q.length < 2) {
       gifSearchSeq.current += 1;
+      gifSearchAbortRef.current?.abort();
       setGifLoading(false);
       setGifError(null);
       setGifResults([]);
@@ -439,7 +452,7 @@ function Index() {
 
     const id = window.setTimeout(() => {
       void searchGifs();
-    }, 260);
+    }, 340);
 
     return () => window.clearTimeout(id);
   }, [gifQuery]);
@@ -1917,7 +1930,7 @@ function rgbDistance(r: number, g: number, b: number, target: { r: number; g: nu
   return Math.hypot(dr, dg, db);
 }
 
-async function searchTenorGifs(query: string): Promise<GifResult[]> {
+async function searchTenorGifs(query: string, signal?: AbortSignal): Promise<GifResult[]> {
   const v2Params = new URLSearchParams({
     q: query,
     key: TENOR_KEY,
@@ -1927,7 +1940,7 @@ async function searchTenorGifs(query: string): Promise<GifResult[]> {
     contentfilter: "medium",
   });
   const v2Url = `https://tenor.googleapis.com/v2/search?${v2Params.toString()}`;
-  const primary = await fetch(v2Url);
+  const primary = await fetch(v2Url, { signal });
 
   if (primary.ok) {
     const payload = (await primary.json()) as { results?: TenorResult[] };
@@ -1943,7 +1956,7 @@ async function searchTenorGifs(query: string): Promise<GifResult[]> {
     contentfilter: "medium",
   });
   const v1Url = `https://g.tenor.com/v1/search?${v1Params.toString()}`;
-  const fallback = await fetch(v1Url);
+  const fallback = await fetch(v1Url, { signal });
   if (!fallback.ok) {
     throw new Error(`tenor ${primary.status}/${fallback.status}`);
   }
