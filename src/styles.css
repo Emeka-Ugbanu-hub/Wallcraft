@@ -804,10 +804,16 @@
       overflow-x: hidden;
     }
 
+    .bitmap-app {
+      --mobile-preview-height: min(54vh, 520px);
+      --mobile-preview-chrome: 44px;
+    }
+
     .bitmap-shell {
       display: flex;
       flex-direction: column;
       min-height: 100vh;
+      padding-top: calc(var(--mobile-preview-height) + var(--mobile-preview-chrome));
     }
 
     .bitmap-panel {
@@ -818,10 +824,13 @@
     }
 
     .bitmap-preview-pane {
-      position: sticky;
+      position: fixed;
       top: 0;
+      left: 0;
+      right: 0;
       z-index: 30;
       order: 1;
+      height: calc(var(--mobile-preview-height) + var(--mobile-preview-chrome));
       min-height: 0;
       padding: 8px;
       border-bottom: 1px solid #4c4d4d;
@@ -840,7 +849,7 @@
     }
 
     .bitmap-preview-wrap {
-      height: min(54vh, 520px);
+      height: var(--mobile-preview-height);
       min-height: 310px;
       align-items: center;
       justify-content: center;
@@ -865,10 +874,7 @@
     }
 
     .bitmap-panel > div:first-child {
-      margin: -14px -14px 16px;
-      padding: 14px;
-      background: #e2e3e1;
-      border-bottom: 1px solid #4c4d4d;
+      display: none;
     }
 
     .bitmap-kicker {
@@ -931,18 +937,27 @@
       letter-spacing: 0.08em;
     }
 
+    .bitmap-selection-chip {
+      display: none;
+    }
+
     .bitmap-selection-delete {
       padding: 5px 7px;
     }
   }
 
   @media (max-width: 520px) {
+    .bitmap-app {
+      --mobile-preview-height: min(48vh, 430px);
+      --mobile-preview-chrome: 42px;
+    }
+
     .bitmap-title {
       font-size: clamp(2rem, 14vw, 3rem);
     }
 
     .bitmap-preview-wrap {
-      height: min(48vh, 430px);
+      height: var(--mobile-preview-height);
       min-height: 260px;
       padding: 8px;
     }

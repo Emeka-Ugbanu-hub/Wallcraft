@@ -88,6 +88,8 @@ type PlacedDecoration = {
   x: number;
   y: number;
   size: number;
+  w?: number;
+  h?: number;
   locked: boolean;
 };
 
@@ -639,18 +641,24 @@ function Index() {
         x: snapEnabled ? snapToGrid(format === "mobile" ? 62 : 72) : format === "mobile" ? 62 : 72,
         y: snapEnabled ? snapToGrid(format === "mobile" ? 68 : 64) : format === "mobile" ? 68 : 64,
         size: defaultAssetSize(kind),
+        w: defaultAssetSize(kind),
+        h: defaultAssetSize(kind),
         locked: false,
       },
     ]);
   }
 
-  function resizeDecoration(id: string, nextSize: number) {
+  function resizeDecorationBox(id: string, nextBox: Box) {
     setDecorations((current) =>
       current.map((item) =>
         item.id === id
           ? {
               ...item,
-              size: clamp(nextSize, 6, 55),
+              x: clamp(nextBox.x, 0, 96),
+              y: clamp(nextBox.y, 0, 96),
+              w: clamp(nextBox.w, 6, 55),
+              h: clamp(nextBox.h, 6, 55),
+              size: Math.max(clamp(nextBox.w, 6, 55), clamp(nextBox.h, 6, 55)),
             }
           : item,
       ),
@@ -1168,47 +1176,54 @@ function Index() {
                   </div>
                 )}
 
-                {decorations.map((asset) => (
-                  <button
-                    key={asset.id}
-                    className={`bitmap-decoration bitmap-canvas-object ${
-                      selectedElement === `decoration:${asset.id}` ? "is-selected" : ""
-                    }`}
-                    style={{
-                      left: `${asset.x}%`,
-                      top: `${asset.y}%`,
-                      width: `${asset.size}%`,
-                      height: `${asset.size}%`,
-                      color: bg.ink,
-                    }}
-                    onPointerDown={(e) => {
-                      setSelectedElement(`decoration:${asset.id}`);
-                      if (asset.locked) return;
-                      startDrag(
-                        e,
-                        canvasRef,
-                        (point) => moveDecoration(asset.id, point),
-                        pushHistory,
-                      );
-                    }}
-                    aria-label={`Move ${asset.kind}`}
-                  >
-                    <DecorationSvg kind={asset.kind} />
-                    {selectedElement === `decoration:${asset.id}` && (
-                      <ResizeHandles
-                        onResize={(e) =>
-                          startAssetResize(
-                            e,
-                            canvasRef,
-                            asset,
-                            (nextSize) => resizeDecoration(asset.id, nextSize),
-                            pushHistory,
-                          )
-                        }
-                      />
-                    )}
-                  </button>
-                ))}
+                {decorations.map((asset) => {
+                  const assetBox = getDecorationBox(asset);
+                  return (
+                    <button
+                      key={asset.id}
+                      className={`bitmap-decoration bitmap-canvas-object ${
+                        selectedElement === `decoration:${asset.id}` ? "is-selected" : ""
+                      }`}
+                      style={{
+                        left: `${assetBox.x}%`,
+                        top: `${assetBox.y}%`,
+                        width: `${assetBox.w}%`,
+                        height: `${assetBox.h}%`,
+                        color: bg.ink,
+                      }}
+                      onPointerDown={(e) => {
+                        setSelectedElement(`decoration:${asset.id}`);
+                        if (asset.locked) return;
+                        startBoxMove(e, canvasRef, assetBox, (nextBox) =>
+                          resizeDecorationBox(asset.id, nextBox),
+                        );
+                      }}
+                      aria-label={`Move ${asset.kind}`}
+                    >
+                      <DecorationSvg kind={asset.kind} />
+                      {selectedElement === `decoration:${asset.id}` && (
+                        <ResizeHandles
+                          onResize={(e, handle) =>
+                            startBoxResize(
+                              e,
+                              canvasRef,
+                              assetBox,
+                              (nextBox) => resizeDecorationBox(asset.id, nextBox),
+                              handle,
+                              {
+                                minW: 6,
+                                minH: 6,
+                                maxW: 55,
+                                maxH: 55,
+                              },
+                              pushHistory,
+                            )
+                          }
+                        />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1451,6 +1466,15 @@ function getDefaultMediaBox(format: Format): Box {
   if (format === "mobile") return { x: 53, y: 66, w: 42, h: 28 };
   if (format === "square") return { x: 26, y: 62, w: 48, h: 28 };
   return { x: 71, y: 60, w: 25, h: 34 };
+}
+
+function getDecorationBox(asset: PlacedDecoration): Box {
+  return {
+    x: asset.x,
+    y: asset.y,
+    w: asset.w ?? asset.size,
+    h: asset.h ?? asset.size,
+  };
 }
 
 function startDrag(
