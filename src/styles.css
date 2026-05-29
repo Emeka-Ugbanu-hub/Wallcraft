@@ -454,9 +454,15 @@
   }
 
   .bitmap-gif-grid button {
+    position: relative;
     aspect-ratio: 1;
     overflow: hidden;
     background: #dedfdd;
+  }
+
+  .bitmap-gif-grid button.is-adding {
+    outline: 2px dashed #404242;
+    outline-offset: -3px;
   }
 
   .bitmap-gif-grid img {
@@ -465,6 +471,22 @@
     object-fit: cover;
     filter: grayscale(1) contrast(1.45);
     image-rendering: pixelated;
+  }
+
+  .bitmap-gif-status {
+    position: absolute;
+    inset: auto 4px 4px 4px;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 1.1rem;
+    border: 1px solid #4c4d4d;
+    background: rgba(226, 227, 225, 0.94);
+    color: #2f3030;
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
   }
 
   .bitmap-asset-grid {

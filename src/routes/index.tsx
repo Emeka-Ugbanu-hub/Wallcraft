@@ -144,6 +144,8 @@ function Index() {
   const [gifResults, setGifResults] = useState<GifResult[]>([]);
   const [gifLoading, setGifLoading] = useState(false);
   const [gifError, setGifError] = useState<string | null>(null);
+  const [addingGifId, setAddingGifId] = useState<string | null>(null);
+  const gifSearchSeq = useRef(0);
   const [isExporting, setIsExporting] = useState(false);
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -409,25 +411,56 @@ function Index() {
   async function searchGifs() {
     const q = gifQuery.trim() || normalizedText || "monochrome";
     if (!q) return;
+    const seq = ++gifSearchSeq.current;
     setGifLoading(true);
     setGifError(null);
     try {
       const results = await searchTenorGifs(q);
+      if (seq !== gifSearchSeq.current) return;
       setGifResults(results);
     } catch (error) {
+      if (seq !== gifSearchSeq.current) return;
       setGifResults([]);
       setGifError(error instanceof Error ? error.message : "GIF search failed");
     } finally {
-      setGifLoading(false);
+      if (seq === gifSearchSeq.current) setGifLoading(false);
     }
   }
 
+  useEffect(() => {
+    const q = gifQuery.trim();
+    if (!q) {
+      gifSearchSeq.current += 1;
+      setGifLoading(false);
+      setGifError(null);
+      setGifResults([]);
+      return;
+    }
+
+    const id = window.setTimeout(() => {
+      void searchGifs();
+    }, 260);
+
+    return () => window.clearTimeout(id);
+  }, [gifQuery]);
+
   async function selectGif(result: GifResult) {
+    setAddingGifId(result.id);
     mediaFileRef.current = null;
-    const src = await toDataUrlSafe(result.full);
-    setMedia(src);
+    pushHistory();
+    setMedia(result.thumb);
     setMediaName(result.title);
     setSelectedElement("media");
+
+    try {
+      setMedia((current) => (current === result.thumb ? result.full : current));
+      const src = await toDataUrlSafe(result.full);
+      setMedia((current) => (current === result.full || current === result.thumb ? src : current));
+    } catch {
+      // Keep direct URL in preview if conversion fails.
+    } finally {
+      setAddingGifId((current) => (current === result.id ? null : current));
+    }
   }
 
   async function download() {
@@ -851,7 +884,7 @@ function Index() {
                   value={gifQuery}
                   onChange={(e) => setGifQuery(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") searchGifs();
+                    if (e.key === "Enter") void searchGifs();
                   }}
                   placeholder="SEARCH GIFS"
                   className="bitmap-mini-input"
@@ -868,8 +901,15 @@ function Index() {
               {!gifLoading && gifResults.length > 0 && (
                 <div className="bitmap-gif-grid mt-2">
                   {gifResults.map((gif) => (
-                    <button key={gif.id} onClick={() => selectGif(gif)} title={gif.title}>
+                    <button
+                      key={gif.id}
+                      onClick={() => selectGif(gif)}
+                      title={gif.title}
+                      className={addingGifId === gif.id ? "is-adding" : ""}
+                      disabled={addingGifId !== null}
+                    >
                       <img src={gif.thumb} alt="" />
+                      {addingGifId === gif.id && <span className="bitmap-gif-status">Adding...</span>}
                     </button>
                   ))}
                 </div>

@@ -9,6 +9,8 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
+const BASE_URL = import.meta.env.BASE_URL || "/";
+const ASSET = (path: string) => `${BASE_URL}${path}`.replace(/\/{2,}/g, "/");
 
 function NotFoundComponent() {
   return (
@@ -95,9 +97,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:image", content: "https://emeka-ugbanu-hub.github.io/Wallcraft/og-image.svg" },
     ],
     links: [
-      { rel: "icon", type: "image/svg+xml", href: "/Wallcraft/favicon.svg" },
-      { rel: "apple-touch-icon", href: "/Wallcraft/favicon.svg" },
-      { rel: "manifest", href: "/Wallcraft/site.webmanifest" },
+      { rel: "icon", type: "image/svg+xml", href: ASSET("favicon.svg") },
+      { rel: "apple-touch-icon", href: ASSET("favicon.svg") },
+      { rel: "manifest", href: ASSET("site.webmanifest") },
       { rel: "canonical", href: "https://emeka-ugbanu-hub.github.io/Wallcraft/" },
       {
         rel: "stylesheet",

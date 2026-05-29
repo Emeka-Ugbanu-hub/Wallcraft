@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <rect x="15" y="15" width="70" height="70" rx="8" stroke="#1f2020" stroke-width="5" fill="none"/>
+  <rect x="25" y="25" width="50" height="50" rx="4" stroke="#1f2020" stroke-width="4" fill="none"/>
+  <path d="M25 55h50M25 65h50M25 45h50" stroke="#1f2020" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="42" cy="38" r="5" stroke="#1f2020" stroke-width="3"/>
+  <path d="M55 33l5 10-5-10z" fill="#1f2020"/>
+</svg>
