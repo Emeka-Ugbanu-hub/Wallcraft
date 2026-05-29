@@ -132,7 +132,7 @@ function Index() {
   const [fontWeight, setFontWeight] = useState<FontWeight>(900);
   const [textColor, setTextColor] = useState(BACKGROUNDS[2].ink);
   const [highlightWordIndex, setHighlightWordIndex] = useState<number | null>(null);
-  const [highlightColor, setHighlightColor] = useState(BACKGROUNDS[2].value);
+  const [highlightColor, setHighlightColor] = useState(BACKGROUNDS[2].ink);
   const [fontSizeScale, setFontSizeScale] = useState(100);
   const [lineSpacing, setLineSpacing] = useState(0.9);
   const [letterSpacing, setLetterSpacing] = useState(-0.12);
@@ -148,6 +148,7 @@ function Index() {
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const highlightHelpRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const mediaFileRef = useRef<File | null>(null);
 
@@ -269,12 +270,28 @@ function Index() {
     if (highlightWordIndex >= textWords.length) setHighlightWordIndex(null);
   }, [highlightWordIndex, textWords.length]);
 
+  useEffect(() => {
+    if (!showHighlightHelp) return;
+
+    function onPointerDown(event: PointerEvent) {
+      if (!highlightHelpRef.current) return;
+      if (highlightHelpRef.current.contains(event.target as Node)) return;
+      setShowHighlightHelp(false);
+    }
+
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [showHighlightHelp]);
+
   function setHighlightFromSelection() {
     const input = textRef.current;
     if (!input) return;
     const start = input.selectionStart ?? 0;
     const end = input.selectionEnd ?? 0;
-    if (end <= start) return;
+    if (end <= start) {
+      setHighlightWordIndex(null);
+      return;
+    }
 
     const mid = Math.floor((start + end) / 2);
     const source = input.value;
@@ -285,9 +302,14 @@ function Index() {
       const wordEnd = index + match[0].length;
       if (mid >= index && mid <= wordEnd) {
         setHighlightWordIndex(i);
+        if (highlightColor === bg.value) {
+          setHighlightColor(textColor);
+        }
         return;
       }
     }
+
+    setHighlightWordIndex(null);
   }
 
   const pushHistory = useCallback(() => {
@@ -604,7 +626,7 @@ function Index() {
             <div className="block">
               <div className="mb-2 flex items-center justify-between">
                 <span className="block text-[11px] font-bold uppercase tracking-[0.2em]">Text</span>
-                <div className="relative">
+                <div ref={highlightHelpRef} className="relative">
                   <button
                     className="bitmap-info-trigger"
                     type="button"
@@ -738,18 +760,6 @@ function Index() {
                   className="bitmap-range mt-1 w-full"
                 />
               </label>
-              <div className="mt-2 border border-[#4c4d4d] p-2">
-                <p className="text-[10px] uppercase tracking-[0.14em]">Word Highlight</p>
-                <p className="mt-1 text-[10px] uppercase tracking-[0.12em] opacity-70">
-                  Use the info icon on the text box for quick steps.
-                </p>
-                <button
-                  className="bitmap-choice mt-2 w-full text-[10px]"
-                  onClick={() => setHighlightWordIndex(null)}
-                >
-                  Clear Highlight
-                </button>
-              </div>
             </Control>
 
             <Control label="Format">
