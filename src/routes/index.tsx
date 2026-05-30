@@ -941,7 +941,8 @@ function Index() {
                       className={addingGifId === gif.id ? "is-adding" : ""}
                       disabled={addingGifId !== null}
                     >
-                      <img src={gif.thumb} alt="" loading="lazy" decoding="async" />
+                      <span className="bitmap-gif-placeholder">GIF</span>
+                      <span className="bitmap-gif-title">{gif.title}</span>
                       {addingGifId === gif.id && <span className="bitmap-gif-status">Adding...</span>}
                     </button>
                   ))}
