@@ -937,8 +937,8 @@ function Index() {
               </p>
               <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
                 <input
-                  value={gifQuery}
-                  onChange={(e) => setGifQuery(e.target.value)}
+                  // value={gifQuery}
+                  // onChange={(e) => setGifQuery(e.target.value)}
                   // onKeyDown={(e) => {
                   //   if (e.key === "Enter") void searchGifs();
                   // }}
