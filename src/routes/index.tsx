@@ -918,7 +918,7 @@ function Index() {
                   spellCheck={false}
                 />
                 <button className="bitmap-icon-button" onClick={searchGifs} disabled={gifLoading}>
-                  <Search className="h-4 w-4" />
+                  {/* <Search className="h-4 w-4" /> */}
                 </button>
               </div>
               {gifLoading && (
