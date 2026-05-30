@@ -943,7 +943,7 @@ function Index() {
                   //   if (e.key === "Enter") void searchGifs();
                   // }}
                   placeholder="SEARCH GIFS"
-                  className="bitmap-mini-input"
+                  // className="bitmap-mini-input"
                 />
                 <button className="bitmap-icon-button" onClick={searchGifs} disabled={gifLoading}>
                   <Search className="h-4 w-4" />
