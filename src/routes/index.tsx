@@ -141,6 +141,7 @@ function Index() {
   const [mediaBox, setMediaBox] = useState<Box>(getDefaultMediaBox("mobile"));
   const [decorations, setDecorations] = useState<PlacedDecoration[]>([]);
   const [selectedElement, setSelectedElement] = useState<SelectedElement>(null);
+  const gifInputRef = useRef<HTMLInputElement>(null);
   const [gifQuery, setGifQuery] = useState("");
   const [gifResults, setGifResults] = useState<GifResult[]>([]);
   const [gifLoading, setGifLoading] = useState(false);
@@ -417,7 +418,7 @@ function Index() {
   }
 
   async function searchGifs() {
-    const q = gifQuery.trim();
+    const q = (gifInputRef.current?.value ?? "").trim();
     if (q.length < 3) {
       gifSearchSeq.current += 1;
       gifSearchAbortRef.current?.abort();
@@ -904,17 +905,8 @@ function Index() {
               </p>
               <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
                 <input
-                  value={gifQuery}
-                  onChange={(e) => {
-                    setGifQuery(e.target.value);
-                    setGifError(null);
-                    if (e.target.value.trim().length < 3) {
-                      gifSearchSeq.current += 1;
-                      gifSearchAbortRef.current?.abort();
-                      setGifLoading(false);
-                      setGifResults([]);
-                    }
-                  }}
+                  ref={gifInputRef}
+                  defaultValue=""
                   onKeyDown={(e) => {
                     if (e.key === "Enter") void searchGifs();
                   }}
@@ -951,9 +943,9 @@ function Index() {
                   ))}
                 </div>
               )}
-              {!gifLoading && gifResults.length === 0 && gifQuery.trim().length > 0 && (
+              {!gifLoading && gifResults.length === 0 && (
                 <p className="mt-2 text-[11px] uppercase tracking-[0.14em]">
-                  {gifQuery.trim().length < 3 ? "Type 3+ letters" : "Press search"}
+                  Type 3+ letters, then search
                 </p>
               )}
               {gifError && (
