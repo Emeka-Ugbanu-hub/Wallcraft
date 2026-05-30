@@ -369,6 +369,8 @@ function Index() {
 
   const allClear = useMemo(() => isAllClear(safeZoneStatus), [safeZoneStatus]);
 
+  const resizeTimer = useRef<ReturnType<typeof setTimeout>>();
+
   useEffect(() => {
     const node = canvasRef.current;
     if (!node) return;
@@ -384,9 +386,15 @@ function Index() {
     };
 
     updateSize();
-    const observer = new ResizeObserver(updateSize);
+    const observer = new ResizeObserver(() => {
+      clearTimeout(resizeTimer.current);
+      resizeTimer.current = setTimeout(updateSize, 120);
+    });
     observer.observe(node);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      clearTimeout(resizeTimer.current);
+    };
   }, [format]);
 
   const toggleLock = (target: "text" | "media" | string) => {
@@ -937,13 +945,17 @@ function Index() {
               </p>
               <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
                 <input
-                  // value={gifQuery}
-                  // onChange={(e) => setGifQuery(e.target.value)}
-                  // onKeyDown={(e) => {
-                  //   if (e.key === "Enter") void searchGifs();
-                  // }}
-                  placeholder="SEARCH GIFS"
-                  // className="bitmap-mini-input"
+                  ref={gifInputRef}
+                  defaultValue=""
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void searchGifs();
+                  }}
+                  placeholder="TYPE, THEN SEARCH"
+                  className="bitmap-mini-input"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
                 />
                 <button className="bitmap-icon-button" onClick={searchGifs} disabled={gifLoading}>
                   <Search className="h-4 w-4" />
