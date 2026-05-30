@@ -174,7 +174,6 @@ function Index() {
   const textRef = useRef<HTMLTextAreaElement>(null);
   const highlightHelpRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const gifInputRef = useRef<HTMLInputElement>(null);
   const mediaFileRef = useRef<File | null>(null);
 
   const normalizedText = text.trim();
@@ -370,8 +369,6 @@ function Index() {
 
   const allClear = useMemo(() => isAllClear(safeZoneStatus), [safeZoneStatus]);
 
-  const resizeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-
   useEffect(() => {
     const node = canvasRef.current;
     if (!node) return;
@@ -387,15 +384,9 @@ function Index() {
     };
 
     updateSize();
-    const observer = new ResizeObserver(() => {
-      clearTimeout(resizeTimer.current);
-      resizeTimer.current = setTimeout(updateSize, 120);
-    });
+    const observer = new ResizeObserver(updateSize);
     observer.observe(node);
-    return () => {
-      observer.disconnect();
-      clearTimeout(resizeTimer.current);
-    };
+    return () => observer.disconnect();
   }, [format]);
 
   const toggleLock = (target: "text" | "media" | string) => {
@@ -946,17 +937,13 @@ function Index() {
               </p>
               <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
                 <input
-                  ref={gifInputRef}
-                  defaultValue=""
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") void searchGifs();
-                  }}
-                  placeholder="TYPE, THEN SEARCH"
-                  className="bitmap-mini-input"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="none"
-                  spellCheck={false}
+                  // value={gifQuery}
+                  // onChange={(e) => setGifQuery(e.target.value)}
+                  // onKeyDown={(e) => {
+                  //   if (e.key === "Enter") void searchGifs();
+                  // }}
+                  // placeholder="SEARCH GIFS"
+                  // className="bitmap-mini-input"
                 />
                 <button className="bitmap-icon-button" onClick={searchGifs} disabled={gifLoading}>
                   <Search className="h-4 w-4" />
