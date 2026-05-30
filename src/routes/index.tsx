@@ -111,6 +111,7 @@ const FORMAT_META: Record<Format, { label: string; width: number; height: number
 };
 
 const MAX_CHARS = 30;
+const TENOR_KEY = "LIVDSRZULELA";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -141,7 +142,6 @@ function Index() {
   const [mediaBox, setMediaBox] = useState<Box>(getDefaultMediaBox("mobile"));
   const [decorations, setDecorations] = useState<PlacedDecoration[]>([]);
   const [selectedElement, setSelectedElement] = useState<SelectedElement>(null);
-  const gifInputRef = useRef<HTMLInputElement>(null);
   const [gifQuery, setGifQuery] = useState("");
   const [gifResults, setGifResults] = useState<GifResult[]>([]);
   const [gifLoading, setGifLoading] = useState(false);
@@ -418,8 +418,8 @@ function Index() {
   }
 
   async function searchGifs() {
-    const q = (gifInputRef.current?.value ?? "").trim();
-    if (q.length < 3) {
+    const q = gifQuery.trim();
+    if (q.length < 2) {
       gifSearchSeq.current += 1;
       gifSearchAbortRef.current?.abort();
       setGifLoading(false);
@@ -434,13 +434,9 @@ function Index() {
     setGifLoading(true);
     setGifError(null);
     try {
-      let results = await searchRedditGifs(q, controller.signal);
+      const results = await searchTenorGifs(q, controller.signal);
       if (seq !== gifSearchSeq.current) return;
-      if (results.length === 0) {
-        results = await searchGiphyGifs(q, controller.signal);
-        if (seq !== gifSearchSeq.current) return;
-      }
-      setGifResults(results.slice(0, 8));
+      setGifResults(results);
     } catch (error) {
       if (seq !== gifSearchSeq.current) return;
       if (error instanceof Error && error.name === "AbortError") return;
@@ -450,6 +446,24 @@ function Index() {
       if (seq === gifSearchSeq.current) setGifLoading(false);
     }
   }
+
+  useEffect(() => {
+    const q = gifQuery.trim();
+    if (q.length < 2) {
+      gifSearchSeq.current += 1;
+      gifSearchAbortRef.current?.abort();
+      setGifLoading(false);
+      setGifError(null);
+      setGifResults([]);
+      return;
+    }
+
+    const id = window.setTimeout(() => {
+      void searchGifs();
+    }, 340);
+
+    return () => window.clearTimeout(id);
+  }, [gifQuery]);
 
   async function selectGif(result: GifResult) {
     setAddingGifId(result.id);
