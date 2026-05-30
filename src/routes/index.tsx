@@ -414,7 +414,7 @@ function Index() {
 
   async function searchGifs() {
     const q = gifQuery.trim();
-    if (q.length < 2) {
+    if (q.length < 3) {
       gifSearchSeq.current += 1;
       gifSearchAbortRef.current?.abort();
       setGifLoading(false);
@@ -431,7 +431,7 @@ function Index() {
     try {
       const results = await searchTenorGifs(q, controller.signal);
       if (seq !== gifSearchSeq.current) return;
-      setGifResults(results);
+      setGifResults(results.slice(0, 8));
     } catch (error) {
       if (seq !== gifSearchSeq.current) return;
       if (error instanceof Error && error.name === "AbortError") return;
@@ -444,7 +444,7 @@ function Index() {
 
   useEffect(() => {
     const q = gifQuery.trim();
-    if (q.length < 2) {
+    if (q.length < 3) {
       gifSearchSeq.current += 1;
       gifSearchAbortRef.current?.abort();
       setGifLoading(false);
@@ -455,7 +455,7 @@ function Index() {
 
     const id = window.setTimeout(() => {
       void searchGifs();
-    }, 340);
+    }, 620);
 
     return () => window.clearTimeout(id);
   }, [gifQuery]);
@@ -941,14 +941,16 @@ function Index() {
                       className={addingGifId === gif.id ? "is-adding" : ""}
                       disabled={addingGifId !== null}
                     >
-                      <img src={gif.thumb} alt="" />
+                      <img src={gif.thumb} alt="" loading="lazy" decoding="async" />
                       {addingGifId === gif.id && <span className="bitmap-gif-status">Adding...</span>}
                     </button>
                   ))}
                 </div>
               )}
-              {!gifLoading && gifResults.length === 0 && gifQuery.length > 0 && (
-                <p className="mt-2 text-[11px] uppercase tracking-[0.14em]">No GIF results</p>
+              {!gifLoading && gifResults.length === 0 && gifQuery.trim().length > 0 && (
+                <p className="mt-2 text-[11px] uppercase tracking-[0.14em]">
+                  {gifQuery.trim().length < 3 ? "Type 3+ letters" : "No GIF results"}
+                </p>
               )}
               {gifError && (
                 <p className="mt-2 text-[11px] uppercase tracking-[0.14em] text-[#8f2f2f]">
@@ -1783,6 +1785,7 @@ interface TenorResult {
   content_description?: string;
   media_formats?: {
     gif?: { url?: string };
+    nanogif?: { url?: string };
     tinygif?: { url?: string };
   };
 }
@@ -1792,6 +1795,7 @@ interface TenorLegacyResult {
   title?: string;
   media?: Array<{
     gif?: { url?: string };
+    nanogif?: { url?: string };
     tinygif?: { url?: string };
   }>;
 }
@@ -2056,8 +2060,8 @@ async function searchTenorGifs(query: string, signal?: AbortSignal): Promise<Gif
       q: query,
       key: TENOR_KEY,
       client_key: "wallposter",
-      limit: "16",
-      media_filter: "tinygif,gif",
+      limit: "8",
+      media_filter: "nanogif,tinygif,gif",
       contentfilter: "medium",
     });
     const v2Url = `https://tenor.googleapis.com/v2/search?${v2Params.toString()}`;
@@ -2073,7 +2077,7 @@ async function searchTenorGifs(query: string, signal?: AbortSignal): Promise<Gif
   const v1Params = new URLSearchParams({
     q: query,
     key: TENOR_KEY,
-    limit: "16",
+    limit: "8",
     media_filter: "minimal",
     contentfilter: "medium",
   });
@@ -2088,7 +2092,7 @@ function mapTenorV2(items: TenorResult[]): GifResult[] {
   return items
     .map((item, index) => {
       const full = item.media_formats?.gif?.url;
-      const thumb = item.media_formats?.tinygif?.url || full;
+      const thumb = item.media_formats?.nanogif?.url || item.media_formats?.tinygif?.url || full;
       if (!full || !thumb) return null;
       return {
         id: item.id || `tenor-${index}`,
@@ -2105,7 +2109,7 @@ function mapTenorLegacy(items: TenorLegacyResult[]): GifResult[] {
     .map((item, index) => {
       const first = item.media?.[0];
       const full = first?.gif?.url;
-      const thumb = first?.tinygif?.url || full;
+      const thumb = first?.nanogif?.url || first?.tinygif?.url || full;
       if (!full || !thumb) return null;
       return {
         id: item.id || `tenor-legacy-${index}`,
