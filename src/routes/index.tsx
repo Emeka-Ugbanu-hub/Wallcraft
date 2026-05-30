@@ -82,6 +82,24 @@ type GifResult = {
   full: string;
 };
 
+type TenorResult = {
+  id?: string;
+  content_description?: string;
+  media_formats?: {
+    gif?: { url?: string };
+    tinygif?: { url?: string };
+  };
+};
+
+type TenorLegacyResult = {
+  id?: string;
+  title?: string;
+  media?: Array<{
+    gif?: { url?: string };
+    tinygif?: { url?: string };
+  }>;
+};
+
 type PlacedDecoration = {
   id: string;
   kind: DecorationKind;
@@ -919,20 +937,16 @@ function Index() {
               </p>
               <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
                 <input
-                  ref={gifInputRef}
-                  defaultValue=""
+                  value={gifQuery}
+                  onChange={(e) => setGifQuery(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") void searchGifs();
                   }}
-                  placeholder="TYPE, THEN SEARCH"
+                  placeholder="SEARCH GIFS"
                   className="bitmap-mini-input"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="none"
-                  spellCheck={false}
                 />
                 <button className="bitmap-icon-button" onClick={searchGifs} disabled={gifLoading}>
-                  {/* <Search className="h-4 w-4" /> */}
+                  <Search className="h-4 w-4" />
                 </button>
               </div>
               {gifLoading && (
@@ -950,17 +964,14 @@ function Index() {
                       className={addingGifId === gif.id ? "is-adding" : ""}
                       disabled={addingGifId !== null}
                     >
-                      <span className="bitmap-gif-placeholder">GIF</span>
-                      <span className="bitmap-gif-title">{gif.title}</span>
+                      <img src={gif.thumb} alt="" />
                       {addingGifId === gif.id && <span className="bitmap-gif-status">Adding...</span>}
                     </button>
                   ))}
                 </div>
               )}
-              {!gifLoading && gifResults.length === 0 && (
-                <p className="mt-2 text-[11px] uppercase tracking-[0.14em]">
-                  Type 3+ letters, then search
-                </p>
+              {!gifLoading && gifResults.length === 0 && gifQuery.length > 0 && (
+                <p className="mt-2 text-[11px] uppercase tracking-[0.14em]">No GIF results</p>
               )}
               {gifError && (
                 <p className="mt-2 text-[11px] uppercase tracking-[0.14em] text-[#8f2f2f]">
@@ -2042,93 +2053,73 @@ function rgbDistance(r: number, g: number, b: number, target: { r: number; g: nu
   return Math.hypot(dr, dg, db);
 }
 
+async function searchTenorGifs(query: string, signal?: AbortSignal): Promise<GifResult[]> {
+  const useLegacyOnly = TENOR_KEY === "LIVDSRZULELA";
 
-const GIF_SUBS = "gifs+reactiongifs+perfectloops+wholesomegifs";
-const GIPHY_KEY = "dc6zaTOxFJmzC";
+  if (!useLegacyOnly) {
+    const v2Params = new URLSearchParams({
+      q: query,
+      key: TENOR_KEY,
+      client_key: "wallposter",
+      limit: "16",
+      media_filter: "tinygif,gif",
+      contentfilter: "medium",
+    });
+    const v2Url = `https://tenor.googleapis.com/v2/search?${v2Params.toString()}`;
+    const primary = await fetch(v2Url, { signal });
 
-async function fetchWithTimeout(url: string, opts: RequestInit, timeoutMs = 8000): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  let signal = controller.signal;
-  if (opts.signal) {
-    const combined = new AbortController();
-    const abort = () => combined.abort();
-    opts.signal.addEventListener("abort", abort, { once: true });
-    controller.signal.addEventListener("abort", abort, { once: true });
-    if (opts.signal.aborted || controller.signal.aborted) combined.abort();
-    signal = combined.signal;
+    if (primary.ok) {
+      const payload = (await primary.json()) as { results?: TenorResult[] };
+      const results = mapTenorV2(payload.results ?? []);
+      if (results.length > 0) return results;
+    }
   }
 
-  try {
-    return await fetch(url, { ...opts, signal });
-  } finally {
-    clearTimeout(timer);
-  }
+  const v1Params = new URLSearchParams({
+    q: query,
+    key: TENOR_KEY,
+    limit: "16",
+    media_filter: "minimal",
+    contentfilter: "medium",
+  });
+  const v1Url = `https://g.tenor.com/v1/search?${v1Params.toString()}`;
+  const fallback = await fetch(v1Url, { signal });
+  if (!fallback.ok) return [];
+  const legacyPayload = (await fallback.json()) as { results?: TenorLegacyResult[] };
+  return mapTenorLegacy(legacyPayload.results ?? []);
 }
 
-async function searchRedditGifs(query: string, signal?: AbortSignal): Promise<GifResult[]> {
-  try {
-    const res = await fetchWithTimeout(
-      `https://www.reddit.com/r/${GIF_SUBS}/search.json?q=${encodeURIComponent(query)}&limit=18&restrict_sr=on&sort=top&t=all`,
-      { signal, headers: { "User-Agent": "WallCraft/1.0" } },
-    );
-    if (!res.ok) return [];
-    const data = (await res.json()) as {
-      data?: { children?: Array<{ data?: { id?: string; url?: string; thumbnail?: string; title?: string } }> };
-    };
-    const children = data?.data?.children ?? [];
-    return children
-      .map((child) => {
-        const item = child.data ?? {};
-        const raw = item.url || "";
-        if (!raw || raw.includes("v.redd.it") || raw.includes("gfycat")) return null;
-        const full = normalizeGifUrl(raw);
-        if (!full) return null;
-        const thumb = item.thumbnail?.startsWith("http") ? item.thumbnail : full;
-        return { id: item.id || uid(), title: item.title || "GIF", thumb, full } as GifResult;
-      })
-      .filter(Boolean) as GifResult[];
-  } catch {
-    return [];
-  }
+function mapTenorV2(items: TenorResult[]): GifResult[] {
+  return items
+    .map((item, index) => {
+      const full = item.media_formats?.gif?.url;
+      const thumb = item.media_formats?.tinygif?.url || full;
+      if (!full || !thumb) return null;
+      return {
+        id: item.id || `tenor-${index}`,
+        title: item.content_description || "GIF",
+        thumb,
+        full,
+      };
+    })
+    .filter(Boolean) as GifResult[];
 }
 
-async function searchGiphyGifs(query: string, signal?: AbortSignal): Promise<GifResult[]> {
-  try {
-    const res = await fetchWithTimeout(
-      `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(query)}&limit=12&rating=g`,
-      { signal },
-    );
-    if (!res.ok) return [];
-    const payload = (await res.json()) as {
-      data?: Array<{
-        id: string;
-        title: string;
-        images: { fixed_width: { url: string }; original: { url: string } };
-      }>;
-    };
-    return (payload.data ?? [])
-      .map((item) => ({
-        id: item.id,
+function mapTenorLegacy(items: TenorLegacyResult[]): GifResult[] {
+  return items
+    .map((item, index) => {
+      const first = item.media?.[0];
+      const full = first?.gif?.url;
+      const thumb = first?.tinygif?.url || full;
+      if (!full || !thumb) return null;
+      return {
+        id: item.id || `tenor-legacy-${index}`,
         title: item.title || "GIF",
-        thumb: item.images?.fixed_width?.url || item.images?.original?.url,
-        full: item.images?.original?.url,
-      }))
-      .filter((g) => g.thumb && g.full);
-  } catch {
-    return [];
-  }
-}
-
-function normalizeGifUrl(url: string): string | null {
-  if (url.endsWith(".gifv")) return url.replace(/\.gifv$/, ".gif");
-  if (/\.(gif|webp|png|jpe?g)(\?|#|$)/i.test(url)) return url;
-  if (url.includes("imgur.com/")) {
-    const base = url.replace(/\?.*$/, "").replace(/#.*$/, "");
-    return base.endsWith(".gif") ? base : `${base}.gif`;
-  }
-  return null;
+        thumb,
+        full,
+      };
+    })
+    .filter(Boolean) as GifResult[];
 }
 
 function spreadDither(
