@@ -174,6 +174,7 @@ function Index() {
   const textRef = useRef<HTMLTextAreaElement>(null);
   const highlightHelpRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const gifInputRef = useRef<HTMLInputElement>(null);
   const mediaFileRef = useRef<File | null>(null);
 
   const normalizedText = text.trim();
@@ -369,7 +370,7 @@ function Index() {
 
   const allClear = useMemo(() => isAllClear(safeZoneStatus), [safeZoneStatus]);
 
-  const resizeTimer = useRef<ReturnType<typeof setTimeout>>();
+  const resizeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     const node = canvasRef.current;
