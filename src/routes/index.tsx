@@ -1785,8 +1785,11 @@ interface TenorResult {
   content_description?: string;
   media_formats?: {
     gif?: { url?: string };
+    gifpreview?: { url?: string };
     nanogif?: { url?: string };
+    nanowebp?: { url?: string };
     tinygif?: { url?: string };
+    tinywebp?: { url?: string };
   };
 }
 
@@ -1795,8 +1798,11 @@ interface TenorLegacyResult {
   title?: string;
   media?: Array<{
     gif?: { url?: string };
+    gifpreview?: { url?: string };
     nanogif?: { url?: string };
+    nanowebp?: { url?: string };
     tinygif?: { url?: string };
+    tinywebp?: { url?: string };
   }>;
 }
 
@@ -2061,7 +2067,7 @@ async function searchTenorGifs(query: string, signal?: AbortSignal): Promise<Gif
       key: TENOR_KEY,
       client_key: "wallposter",
       limit: "8",
-      media_filter: "nanogif,tinygif,gif",
+      media_filter: "gifpreview,nanogif,gif",
       contentfilter: "medium",
     });
     const v2Url = `https://tenor.googleapis.com/v2/search?${v2Params.toString()}`;
@@ -2092,7 +2098,13 @@ function mapTenorV2(items: TenorResult[]): GifResult[] {
   return items
     .map((item, index) => {
       const full = item.media_formats?.gif?.url;
-      const thumb = item.media_formats?.nanogif?.url || item.media_formats?.tinygif?.url || full;
+      const thumb =
+        item.media_formats?.gifpreview?.url ||
+        item.media_formats?.nanowebp?.url ||
+        item.media_formats?.tinywebp?.url ||
+        item.media_formats?.nanogif?.url ||
+        item.media_formats?.tinygif?.url ||
+        full;
       if (!full || !thumb) return null;
       return {
         id: item.id || `tenor-${index}`,
@@ -2109,7 +2121,13 @@ function mapTenorLegacy(items: TenorLegacyResult[]): GifResult[] {
     .map((item, index) => {
       const first = item.media?.[0];
       const full = first?.gif?.url;
-      const thumb = first?.nanogif?.url || first?.tinygif?.url || full;
+      const thumb =
+        first?.gifpreview?.url ||
+        first?.nanowebp?.url ||
+        first?.tinywebp?.url ||
+        first?.nanogif?.url ||
+        first?.tinygif?.url ||
+        full;
       if (!full || !thumb) return null;
       return {
         id: item.id || `tenor-legacy-${index}`,

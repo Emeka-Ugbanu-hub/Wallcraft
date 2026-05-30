@@ -471,6 +471,7 @@
     object-fit: cover;
     filter: grayscale(1) contrast(1.45);
     image-rendering: pixelated;
+    pointer-events: none;
   }
 
   .bitmap-gif-status {
@@ -487,6 +488,7 @@
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
+    pointer-events: none;
   }
 
   .bitmap-asset-grid {
