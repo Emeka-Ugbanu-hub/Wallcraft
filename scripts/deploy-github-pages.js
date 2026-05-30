@@ -17,16 +17,11 @@ const indexPath = join(docsDir, "index.html");
 if (existsSync(indexPath)) {
   const html = readFileSync(indexPath, "utf-8");
 
-  const spaRedirect = `<script>sessionStorage.redirect=location.href;</script>`;
-  const spaRestore = `<script>!function(){var r=sessionStorage.redirect;delete sessionStorage.redirect;r&&r!==location.href&&history.replaceState(null,null,r)}();</script>`;
+  const notFound = html.replace(
+    /<title>.*?<\/title>/,
+    "<title>Wallcraft — Page Not Found</title>",
+  );
 
-  const notFound = html
-    .replace(/<title>.*?<\/title>/, "<title>Wallcraft — Page Not Found</title>")
-    .replace("</head>", `${spaRedirect}</head>`);
-
-  const indexWithRestore = html.replace("</head>", `${spaRestore}</head>`);
-
-  writeFileSync(indexPath, indexWithRestore);
   writeFileSync(join(docsDir, "404.html"), notFound);
 }
 
