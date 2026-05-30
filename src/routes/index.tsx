@@ -442,24 +442,6 @@ function Index() {
     }
   }
 
-  useEffect(() => {
-    const q = gifQuery.trim();
-    if (q.length < 3) {
-      gifSearchSeq.current += 1;
-      gifSearchAbortRef.current?.abort();
-      setGifLoading(false);
-      setGifError(null);
-      setGifResults([]);
-      return;
-    }
-
-    const id = window.setTimeout(() => {
-      void searchGifs();
-    }, 620);
-
-    return () => window.clearTimeout(id);
-  }, [gifQuery]);
-
   async function selectGif(result: GifResult) {
     setAddingGifId(result.id);
     setExportNotice(null);
@@ -915,12 +897,25 @@ function Index() {
               <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
                 <input
                   value={gifQuery}
-                  onChange={(e) => setGifQuery(e.target.value)}
+                  onChange={(e) => {
+                    setGifQuery(e.target.value);
+                    setGifError(null);
+                    if (e.target.value.trim().length < 3) {
+                      gifSearchSeq.current += 1;
+                      gifSearchAbortRef.current?.abort();
+                      setGifLoading(false);
+                      setGifResults([]);
+                    }
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") void searchGifs();
                   }}
-                  placeholder="SEARCH GIFS"
+                  placeholder="TYPE, THEN SEARCH"
                   className="bitmap-mini-input"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
                 />
                 <button className="bitmap-icon-button" onClick={searchGifs} disabled={gifLoading}>
                   <Search className="h-4 w-4" />
@@ -950,7 +945,7 @@ function Index() {
               )}
               {!gifLoading && gifResults.length === 0 && gifQuery.trim().length > 0 && (
                 <p className="mt-2 text-[11px] uppercase tracking-[0.14em]">
-                  {gifQuery.trim().length < 3 ? "Type 3+ letters" : "No GIF results"}
+                  {gifQuery.trim().length < 3 ? "Type 3+ letters" : "Press search"}
                 </p>
               )}
               {gifError && (
