@@ -849,7 +849,6 @@
       display: flex;
       flex-direction: column;
       min-height: 100vh;
-      padding-top: calc(var(--mobile-preview-height) + var(--mobile-preview-chrome));
     }
 
     .bitmap-panel {
@@ -860,13 +859,7 @@
     }
 
     .bitmap-preview-pane {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 30;
       order: 1;
-      height: calc(var(--mobile-preview-height) + var(--mobile-preview-chrome));
       min-height: 0;
       padding: 8px;
       border-bottom: 1px solid #4c4d4d;
@@ -986,6 +979,19 @@
     .bitmap-app {
       --mobile-preview-height: min(48vh, 430px);
       --mobile-preview-chrome: 42px;
+    }
+
+    .bitmap-shell {
+      padding-top: calc(var(--mobile-preview-height) + var(--mobile-preview-chrome));
+    }
+
+    .bitmap-preview-pane {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 30;
+      height: calc(var(--mobile-preview-height) + var(--mobile-preview-chrome));
     }
 
     .bitmap-title {
