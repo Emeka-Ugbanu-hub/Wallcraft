@@ -936,7 +936,7 @@ function Index() {
                 {mediaName || "Optional"}
               </p>
               <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
-                <input
+                {/* <input
                   value={gifQuery}
                   onChange={(e) => setGifQuery(e.target.value)}
                   onKeyDown={(e) => {
@@ -944,9 +944,9 @@ function Index() {
                   }}
                   placeholder="SEARCH GIFS"
                   className="bitmap-mini-input"
-                />
+                /> */}
                 <button className="bitmap-icon-button" onClick={searchGifs} disabled={gifLoading}>
-                  {/* <Search className="h-4 w-4" /> */}
+                  <Search className="h-4 w-4" />
                 </button>
               </div>
               {gifLoading && (
