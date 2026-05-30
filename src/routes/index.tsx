@@ -160,6 +160,7 @@ function Index() {
   const [mediaBox, setMediaBox] = useState<Box>(getDefaultMediaBox("mobile"));
   const [decorations, setDecorations] = useState<PlacedDecoration[]>([]);
   const [selectedElement, setSelectedElement] = useState<SelectedElement>(null);
+  const gifInputRef = useRef<HTMLTextAreaElement>(null);
   const [gifQuery, setGifQuery] = useState("");
   const [gifResults, setGifResults] = useState<GifResult[]>([]);
   const [gifLoading, setGifLoading] = useState(false);
@@ -168,6 +169,7 @@ function Index() {
   const [exportNotice, setExportNotice] = useState<string | null>(null);
   const gifSearchSeq = useRef(0);
   const gifSearchAbortRef = useRef<AbortController | null>(null);
+  const gifSearchTimerRef = useRef<number | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -436,7 +438,12 @@ function Index() {
   }
 
   async function searchGifs() {
-    const q = gifQuery.trim();
+    const q = (gifInputRef.current?.value ?? "").trim();
+    setGifQuery(q);
+    if (gifSearchTimerRef.current) {
+      window.clearTimeout(gifSearchTimerRef.current);
+      gifSearchTimerRef.current = null;
+    }
     if (q.length < 2) {
       gifSearchSeq.current += 1;
       gifSearchAbortRef.current?.abort();
@@ -465,8 +472,13 @@ function Index() {
     }
   }
 
-  useEffect(() => {
-    const q = gifQuery.trim();
+  function queueGifSearch() {
+    const q = (gifInputRef.current?.value ?? "").trim();
+    setGifQuery(q);
+    if (gifSearchTimerRef.current) {
+      window.clearTimeout(gifSearchTimerRef.current);
+      gifSearchTimerRef.current = null;
+    }
     if (q.length < 2) {
       gifSearchSeq.current += 1;
       gifSearchAbortRef.current?.abort();
@@ -476,12 +488,17 @@ function Index() {
       return;
     }
 
-    const id = window.setTimeout(() => {
+    gifSearchTimerRef.current = window.setTimeout(() => {
       void searchGifs();
     }, 340);
+  }
 
-    return () => window.clearTimeout(id);
-  }, [gifQuery]);
+  useEffect(() => {
+    return () => {
+      if (gifSearchTimerRef.current) window.clearTimeout(gifSearchTimerRef.current);
+      gifSearchAbortRef.current?.abort();
+    };
+  }, []);
 
   async function selectGif(result: GifResult) {
     setAddingGifId(result.id);
@@ -936,14 +953,24 @@ function Index() {
                 {mediaName || "Optional"}
               </p>
               <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
-                <input
-                  value={gifQuery}
-                  onChange={(e) => setGifQuery(e.target.value)}
+                <textarea
+                  ref={gifInputRef}
+                  defaultValue=""
+                  onChange={queueGifSearch}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") void searchGifs();
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void searchGifs();
+                    }
                   }}
                   placeholder="SEARCH GIFS"
-                  className="bitmap-mini-input"
+                  rows={1}
+                  className="bitmap-mini-input resize-none overflow-hidden py-3"
+                  aria-label="Search GIFs"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
                 />
                 <button className="bitmap-icon-button" onClick={searchGifs} disabled={gifLoading}>
                   <Search className="h-4 w-4" />
