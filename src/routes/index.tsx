@@ -2057,6 +2057,20 @@ function rgbDistance(r: number, g: number, b: number, target: { r: number; g: nu
 async function searchTenorGifs(query: string, signal?: AbortSignal): Promise<GifResult[]> {
   const useLegacyOnly = TENOR_KEY === "LIVDSRZULELA";
 
+  async function safeFetch(url: string, s?: AbortSignal) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    if (s?.aborted) { clearTimeout(timer); throw new DOMException("Aborted", "AbortError"); }
+    const abort = () => ctrl.abort();
+    s?.addEventListener("abort", abort, { once: true });
+    try {
+      return await fetch(url, { signal: ctrl.signal });
+    } finally {
+      clearTimeout(timer);
+      s?.removeEventListener("abort", abort);
+    }
+  }
+
   if (!useLegacyOnly) {
     const v2Params = new URLSearchParams({
       q: query,
@@ -2067,7 +2081,7 @@ async function searchTenorGifs(query: string, signal?: AbortSignal): Promise<Gif
       contentfilter: "medium",
     });
     const v2Url = `https://tenor.googleapis.com/v2/search?${v2Params.toString()}`;
-    const primary = await fetch(v2Url, { signal });
+    const primary = await safeFetch(v2Url, signal);
 
     if (primary.ok) {
       const payload = (await primary.json()) as { results?: TenorResult[] };
@@ -2084,7 +2098,7 @@ async function searchTenorGifs(query: string, signal?: AbortSignal): Promise<Gif
     contentfilter: "medium",
   });
   const v1Url = `https://g.tenor.com/v1/search?${v1Params.toString()}`;
-  const fallback = await fetch(v1Url, { signal });
+  const fallback = await safeFetch(v1Url, signal);
   if (!fallback.ok) return [];
   const legacyPayload = (await fallback.json()) as { results?: TenorLegacyResult[] };
   return mapTenorLegacy(legacyPayload.results ?? []);
