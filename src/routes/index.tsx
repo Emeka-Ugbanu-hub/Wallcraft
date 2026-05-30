@@ -356,7 +356,12 @@ function Index() {
 
     const updateSize = () => {
       const rect = node.getBoundingClientRect();
-      setPreviewSize({ width: rect.width, height: rect.height });
+      const nextW = Math.round(rect.width);
+      const nextH = Math.round(rect.height);
+      setPreviewSize((prev) => {
+        if (prev.width === nextW && prev.height === nextH) return prev;
+        return { width: nextW, height: nextH };
+      });
     };
 
     updateSize();
