@@ -181,7 +181,6 @@ function Index() {
   const mediaFileRef = useRef<File | null>(null);
 
   useEffect(() => {
-    if (!diagEnabled) return;
     let last = performance.now();
     let frame = 0;
     let dead = false;
@@ -207,7 +206,7 @@ function Index() {
     const raf = { current: requestAnimationFrame(loop) };
     console.log("[MONITOR] Frame monitor started at", performance.now().toFixed(0));
     return () => { cancelAnimationFrame(raf.current); console.log("[MONITOR] stopped"); };
-  }, [diagEnabled]);
+  }, []);
 
   const normalizedText = text.trim();
   const textLines = useMemo(() => makeTextLines(normalizedText, format), [format, normalizedText]);
