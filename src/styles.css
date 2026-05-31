@@ -303,6 +303,17 @@
     padding: 0 0.7rem;
     text-transform: uppercase;
     outline: none;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    display: flex;
+    align-items: center;
+  }
+
+  .bitmap-mini-input[contenteditable]:empty::before {
+    content: attr(data-placeholder);
+    color: rgba(64, 66, 66, 0.42);
+    pointer-events: none;
+    white-space: pre;
   }
 
   .bitmap-select:focus,

@@ -162,7 +162,7 @@ function Index() {
   const [mediaBox, setMediaBox] = useState<Box>(getDefaultMediaBox("mobile"));
   const [decorations, setDecorations] = useState<PlacedDecoration[]>([]);
   const [selectedElement, setSelectedElement] = useState<SelectedElement>(null);
-  const gifInputRef = useRef<HTMLInputElement>(null);
+  const gifInputRef = useRef<HTMLDivElement>(null);
   const [gifQuery, setGifQuery] = useState("");
   const [gifResults, setGifResults] = useState<GifResult[]>([]);
   const [gifLoading, setGifLoading] = useState(false);
@@ -522,7 +522,7 @@ function Index() {
   }
 
   async function searchGifs() {
-    const q = (gifInputRef.current?.value ?? "").trim();
+    const q = (gifInputRef.current?.textContent ?? "").trim();
     setGifQuery(q);
     if (gifSearchTimerRef.current) {
       window.clearTimeout(gifSearchTimerRef.current);
@@ -557,7 +557,7 @@ function Index() {
   }
 
   function queueGifSearch() {
-    const q = (gifInputRef.current?.value ?? "").trim();
+    const q = (gifInputRef.current?.textContent ?? "").trim();
     setGifQuery(q);
     if (gifSearchTimerRef.current) {
       window.clearTimeout(gifSearchTimerRef.current);
@@ -1040,23 +1040,20 @@ function Index() {
               </p>
 
               <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
-                <input
+                <div
                   ref={gifInputRef}
-                  defaultValue=""
-                  onFocus={() => console.log("[FOCUS] GIF input", performance.now().toFixed(1))}
-                  onChange={queueGifSearch}
+                  contentEditable
+                  suppressContentEditableWarning
+                  role="textbox"
+                  data-placeholder="SEARCH GIFS"
+                  onInput={queueGifSearch}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
                       void searchGifs();
                     }
                   }}
-                  placeholder="SEARCH GIFS"
                   className="bitmap-mini-input"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="none"
-                  spellCheck={false}
                 />
                 <button className="bitmap-icon-button" onClick={searchGifs} disabled={gifLoading}>
                   <Search className="h-4 w-4" />
