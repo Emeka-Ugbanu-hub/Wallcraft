@@ -206,6 +206,165 @@ function Index() {
       textColor,
     ],
   );
+  const history = useRef(createUndoRedo(80));
+
+  const captureSnapshot = useCallback(
+    (): Snapshot => ({
+      text,
+      format,
+      bg: bg.label,
+      media,
+      mediaName,
+      mediaMode,
+      removeBg,
+      fontLabel: font.label,
+      fontWeight,
+      textBox: { ...textBox },
+      mediaBox: { ...mediaBox },
+      decorations: decorations.map((d) => ({ ...d })),
+      textLocked,
+      mediaLocked,
+      fontSizeScale,
+      lineSpacing,
+      letterSpacing,
+      textColor,
+      highlightWordIndex,
+      highlightColor,
+    }),
+    [
+      text,
+      format,
+      bg,
+      media,
+      mediaName,
+      mediaMode,
+      removeBg,
+      font,
+      fontWeight,
+      textBox,
+      mediaBox,
+      decorations,
+      textLocked,
+      mediaLocked,
+      fontSizeScale,
+      lineSpacing,
+      letterSpacing,
+      textColor,
+      highlightWordIndex,
+      highlightColor,
+    ],
+  );
+
+  const restoreSnapshot = useCallback((snap: Snapshot) => {
+    if (snap.text !== undefined) setText(snap.text as string);
+    if (snap.format) setFormat(snap.format as Format);
+    if (snap.bg) {
+      const found = BACKGROUNDS.find((b) => b.label === snap.bg);
+      if (found) setBg(found);
+    }
+    if (snap.media !== undefined) setMedia(snap.media as string | null);
+    if (snap.mediaName !== undefined) setMediaName(snap.mediaName as string | null);
+    if (snap.mediaMode) setMediaMode(snap.mediaMode as MediaMode);
+    if (snap.removeBg !== undefined) setRemoveBg(snap.removeBg as boolean);
+    if (snap.fontLabel) {
+      const found = FONT_OPTIONS.find((f) => f.label === snap.fontLabel);
+      if (found) setFont(found);
+    }
+    if (snap.fontWeight) setFontWeight(snap.fontWeight as FontWeight);
+    if (snap.textBox) setTextBox(snap.textBox as Box);
+    if (snap.mediaBox) setMediaBox(snap.mediaBox as Box);
+    if (snap.decorations)
+      setDecorations((snap.decorations as PlacedDecoration[]).map((d) => ({ ...d })));
+    if (snap.textLocked !== undefined) setTextLocked(snap.textLocked as boolean);
+    if (snap.mediaLocked !== undefined) setMediaLocked(snap.mediaLocked as boolean);
+    if (snap.fontSizeScale !== undefined) setFontSizeScale(snap.fontSizeScale as number);
+    if (snap.lineSpacing !== undefined) setLineSpacing(snap.lineSpacing as number);
+    if (snap.letterSpacing !== undefined) setLetterSpacing(snap.letterSpacing as number);
+    if (snap.textColor !== undefined) setTextColor(snap.textColor as string);
+    if (snap.highlightWordIndex !== undefined)
+      setHighlightWordIndex(snap.highlightWordIndex as number | null);
+    if (snap.highlightColor !== undefined) setHighlightColor(snap.highlightColor as string);
+  }, []);
+
+  useEffect(() => {
+    if (highlightWordIndex === null) return;
+    if (highlightWordIndex >= textWords.length) setHighlightWordIndex(null);
+  }, [highlightWordIndex, textWords.length]);
+
+  useEffect(() => {
+    if (!showHighlightHelp) return;
+
+    function onPointerDown(event: PointerEvent) {
+      if (!highlightHelpRef.current) return;
+      if (highlightHelpRef.current.contains(event.target as Node)) return;
+      setShowHighlightHelp(false);
+    }
+
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [showHighlightHelp]);
+
+  function setHighlightFromSelection() {
+    const input = textRef.current;
+    if (!input) return;
+    const start = input.selectionStart ?? 0;
+    const end = input.selectionEnd ?? 0;
+    if (end <= start) {
+      setHighlightWordIndex(null);
+      return;
+    }
+
+    const mid = Math.floor((start + end) / 2);
+    const source = input.value;
+    const matches = [...source.matchAll(/\S+/g)];
+    for (let i = 0; i < matches.length; i++) {
+      const match = matches[i];
+      const index = match.index ?? 0;
+      const wordEnd = index + match[0].length;
+      if (mid >= index && mid <= wordEnd) {
+        setHighlightWordIndex(i);
+        if (highlightColor === bg.value) {
+          setHighlightColor(textColor);
+        }
+        return;
+      }
+    }
+
+    setHighlightWordIndex(null);
+  }
+
+  const pushHistory = useCallback(() => {
+    history.current.push(captureSnapshot());
+  }, [captureSnapshot]);
+
+  const undo = useCallback(() => {
+    const snap = history.current.undo(captureSnapshot());
+    if (snap) restoreSnapshot(snap);
+  }, [captureSnapshot, restoreSnapshot]);
+
+  const redo = useCallback(() => {
+    const snap = history.current.redo(captureSnapshot());
+    if (snap) restoreSnapshot(snap);
+  }, [captureSnapshot, restoreSnapshot]);
+
+  const snapToGrid = useCallback((value: number, grid = 5): number => {
+    return Math.round(value / grid) * grid;
+  }, []);
+
+  const safeZoneStatus = useMemo(
+    () =>
+      checkSafeZone(
+        normalizedText ? textBox : null,
+        media ? mediaBox : null,
+        decorations,
+        !!normalizedText,
+        !!media,
+        typeof canvasStyle.fontSize === "number" ? canvasStyle.fontSize : 0,
+      ),
+    [normalizedText, media, textBox, mediaBox, decorations, canvasStyle.fontSize],
+  );
+
+  const allClear = useMemo(() => isAllClear(safeZoneStatus), [safeZoneStatus]);
   const meta = FORMAT_META[format];
 
   const toggleLock = (target: "text" | "media" | string) => {
