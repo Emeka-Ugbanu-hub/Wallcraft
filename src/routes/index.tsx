@@ -175,7 +175,7 @@ function Index() {
   const gifSearchTimerRef = useRef<number | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
-  const textRef = useRef<HTMLTextAreaElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
   const highlightHelpRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const mediaFileRef = useRef<File | null>(null);
@@ -183,7 +183,7 @@ function Index() {
   useEffect(() => {
     const el = textRef.current;
     if (!el || document.activeElement === el) return;
-    el.value = text;
+    el.textContent = text;
   }, [text]);
 
   const normalizedText = text.trim();
@@ -314,17 +314,25 @@ function Index() {
   }, [showHighlightHelp]);
 
   function setHighlightFromSelection() {
-    const input = textRef.current;
-    if (!input) return;
-    const start = input.selectionStart ?? 0;
-    const end = input.selectionEnd ?? 0;
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !textRef.current) return;
+    const range = sel.getRangeAt(0);
+    if (!textRef.current.contains(range.commonAncestorContainer)) return;
+    if (range.collapsed) {
+      setHighlightWordIndex(null);
+      return;
+    }
+    const source = textRef.current.textContent ?? "";
+    const preRange = document.createRange();
+    preRange.setStart(textRef.current, 0);
+    preRange.setEnd(range.startContainer, range.startOffset);
+    const start = preRange.toString().length;
+    const end = start + range.toString().length;
     if (end <= start) {
       setHighlightWordIndex(null);
       return;
     }
-
     const mid = Math.floor((start + end) / 2);
-    const source = input.value;
     const matches = [...source.matchAll(/\S+/g)];
     for (let i = 0; i < matches.length; i++) {
       const match = matches[i];
@@ -338,7 +346,6 @@ function Index() {
         return;
       }
     }
-
     setHighlightWordIndex(null);
   }
 
@@ -850,16 +857,24 @@ function Index() {
                   )}
                 </div>
               </div>
-              <textarea
+              <div
                 ref={textRef}
-                defaultValue={text}
-                onChange={(e) => setText(e.target.value.slice(0, MAX_CHARS))}
-                onSelect={() => requestAnimationFrame(setHighlightFromSelection)}
-                onKeyUp={() => requestAnimationFrame(setHighlightFromSelection)}
-                onMouseUp={() => requestAnimationFrame(setHighlightFromSelection)}
-                rows={3}
-                placeholder="TYPE A WORD"
-                className="bitmap-input min-h-28 resize-none"
+                contentEditable
+                suppressContentEditableWarning
+                role="textbox"
+                data-placeholder="TYPE A WORD"
+                onInput={(e) => {
+                  const val = e.currentTarget.textContent ?? "";
+                  if (val.length > MAX_CHARS) {
+                    e.currentTarget.textContent = val.slice(0, MAX_CHARS);
+                    const sel = window.getSelection();
+                    if (sel) {
+                      sel.collapse(e.currentTarget.lastChild, MAX_CHARS);
+                    }
+                  }
+                  setText((e.currentTarget.textContent ?? "").slice(0, MAX_CHARS));
+                }}
+                className="bitmap-input min-h-28"
               />
               <div className="mt-2 flex justify-between text-[11px] uppercase tracking-[0.18em]">
                 <span>
