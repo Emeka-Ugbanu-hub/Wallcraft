@@ -854,9 +854,6 @@ function Index() {
                 ref={textRef}
                 defaultValue={text}
                 onChange={(e) => setText(e.target.value.slice(0, MAX_CHARS))}
-                onSelect={setHighlightFromSelection}
-                onKeyUp={setHighlightFromSelection}
-                onMouseUp={setHighlightFromSelection}
                 rows={3}
                 placeholder="TYPE A WORD"
                 className="bitmap-input min-h-28 resize-none"
