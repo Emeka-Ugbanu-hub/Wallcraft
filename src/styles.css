@@ -781,30 +781,27 @@
     html,
     body,
     #root {
-      min-height: 100%;
-      overflow-x: hidden;
-      overflow-y: auto;
+      height: 100%;
+      overflow: clip;
     }
 
     .bitmap-app,
     .bitmap-shell {
-      min-height: 100svh;
-      height: auto;
-      overflow: visible;
+      height: 100dvh;
+      min-height: 0;
+      overflow: clip;
     }
 
     .bitmap-panel {
-      position: relative;
-      top: auto;
-      height: auto;
+      height: 100dvh;
       min-height: 0;
       overflow-y: auto;
       scrollbar-gutter: stable;
     }
 
     .bitmap-preview-pane {
-      min-height: 100svh;
-      overflow: visible;
+      height: 100dvh;
+      overflow: hidden;
     }
 
     .bitmap-preview-wrap {
