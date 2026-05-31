@@ -10,7 +10,6 @@ const router = createRouter({
   routeTree,
   context: { queryClient },
   basepath: "/Wallcraft",
-  scrollRestoration: true,
   defaultPreloadStaleTime: 0,
 });
 

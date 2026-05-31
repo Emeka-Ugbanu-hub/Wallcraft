@@ -762,14 +762,14 @@
     body,
     #root {
       height: 100%;
-      overflow: hidden;
+      overflow: clip;
     }
 
     .bitmap-app,
     .bitmap-shell {
       height: 100dvh;
       min-height: 0;
-      overflow: hidden;
+      overflow: clip;
     }
 
     .bitmap-panel {
@@ -781,7 +781,7 @@
 
     .bitmap-preview-pane {
       height: 100dvh;
-      overflow: hidden;
+      overflow: clip;
     }
 
     .bitmap-preview-wrap {
