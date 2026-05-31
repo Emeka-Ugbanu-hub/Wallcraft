@@ -416,6 +416,10 @@ function Index() {
   async function searchGifs() {
     const q = (gifInputRef.current?.value ?? "").trim();
     setGifQuery(q);
+    if (gifSearchTimerRef.current) {
+      window.clearTimeout(gifSearchTimerRef.current);
+      gifSearchTimerRef.current = null;
+    }
     if (q.length < 2) {
       gifSearchSeq.current += 1;
       gifSearchAbortRef.current?.abort();
@@ -447,6 +451,10 @@ function Index() {
   function queueGifSearch() {
     const q = (gifInputRef.current?.value ?? "").trim();
     setGifQuery(q);
+    if (gifSearchTimerRef.current) {
+      window.clearTimeout(gifSearchTimerRef.current);
+      gifSearchTimerRef.current = null;
+    }
     if (q.length < 2) {
       gifSearchSeq.current += 1;
       gifSearchAbortRef.current?.abort();
@@ -456,11 +464,19 @@ function Index() {
       return;
     }
 
-    if (gifSearchTimerRef.current) window.clearTimeout(gifSearchTimerRef.current);
     gifSearchTimerRef.current = window.setTimeout(() => {
       void searchGifs();
     }, 340);
   }
+
+  useEffect(() => {
+    return () => {
+      if (gifSearchTimerRef.current) {
+        window.clearTimeout(gifSearchTimerRef.current);
+      }
+      gifSearchAbortRef.current?.abort();
+    };
+  }, []);
 
   async function selectGif(result: GifResult) {
     setAddingGifId(result.id);
@@ -915,14 +931,16 @@ function Index() {
                 {mediaName || "Optional"}
               </p>
 
-              <Control label="Search GIFs">
               <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
                 <input
                   ref={gifInputRef}
                   defaultValue=""
                   onChange={queueGifSearch}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") void searchGifs();
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void searchGifs();
+                    }
                   }}
                   placeholder="SEARCH GIFS"
                   className="bitmap-mini-input"
@@ -935,7 +953,6 @@ function Index() {
                   <Search className="h-4 w-4" />
                 </button>
               </div>
-              </Control>
               {gifLoading && (
                 <p className="mt-2 animate-pulse text-[11px] uppercase tracking-[0.14em]">
                   Searching...
@@ -1284,10 +1301,10 @@ function Index() {
 
 function Control({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="block">
+    <div className="block">
       <span className="mb-2 block text-[11px] font-bold uppercase tracking-[0.2em]">{label}</span>
       {children}
-    </label>
+    </div>
   );
 }
 
