@@ -181,25 +181,33 @@ function Index() {
   const mediaFileRef = useRef<File | null>(null);
 
   useEffect(() => {
+    if (!diagEnabled) return;
     let last = performance.now();
     let frame = 0;
+    let dead = false;
     const loop = () => {
-      const now = performance.now();
-      const delta = now - last;
-      frame++;
-      if (delta > 100) {
-        console.warn(`[FREEZE-DETECT] Frame ${frame} took ${delta.toFixed(0)}ms`);
+      try {
+        if (dead) return;
+        const now = performance.now();
+        const delta = now - last;
+        frame++;
+        if (delta > 100) {
+          console.warn(`[FREEZE-DETECT] Frame ${frame} took ${delta.toFixed(0)}ms`);
+        }
+        last = now;
+        if (frame % 60 === 0) {
+          console.log(`[HEARTBEAT] Frame ${frame}, time ${now.toFixed(0)}`);
+        }
+        raf.current = requestAnimationFrame(loop);
+      } catch (e) {
+        console.error("[MONITOR-CRASH]", e);
+        dead = true;
       }
-      last = now;
-      if (frame % 60 === 0) {
-        console.log(`[HEARTBEAT] Frame ${frame}, time ${now.toFixed(0)}`);
-      }
-      raf.current = requestAnimationFrame(loop);
     };
     const raf = { current: requestAnimationFrame(loop) };
-    console.log("[MONITOR] Frame monitor started");
-    return () => cancelAnimationFrame(raf.current);
-  }, []);
+    console.log("[MONITOR] Frame monitor started at", performance.now().toFixed(0));
+    return () => { cancelAnimationFrame(raf.current); console.log("[MONITOR] stopped"); };
+  }, [diagEnabled]);
 
   const normalizedText = text.trim();
   const textLines = useMemo(() => makeTextLines(normalizedText, format), [format, normalizedText]);
