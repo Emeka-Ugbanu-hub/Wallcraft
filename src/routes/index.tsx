@@ -875,11 +875,8 @@ function Index() {
               </div>
               <textarea
                 ref={textRef}
-                value={text}
+                defaultValue={text}
                 onChange={(e) => setText(e.target.value.slice(0, MAX_CHARS))}
-                onSelect={setHighlightFromSelection}
-                onKeyUp={setHighlightFromSelection}
-                onMouseUp={setHighlightFromSelection}
                 onFocus={() => console.log("[FOCUS] text textarea", performance.now().toFixed(1))}
                 rows={3}
                 placeholder="TYPE A WORD"
