@@ -136,6 +136,8 @@ function uid() {
 }
 
 function Index() {
+  const diagEnabled =
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).has("diag");
   const [text, setText] = useState("");
   const [format, setFormat] = useState<Format>("mobile");
   const [bg, setBg] = useState(BACKGROUNDS[2]);
@@ -167,6 +169,7 @@ function Index() {
   const [gifError, setGifError] = useState<string | null>(null);
   const [addingGifId, setAddingGifId] = useState<string | null>(null);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [diagBuildStamp, setDiagBuildStamp] = useState<string>("");
   const gifSearchSeq = useRef(0);
   const gifSearchAbortRef = useRef<AbortController | null>(null);
   const gifSearchTimerRef = useRef<number | null>(null);
@@ -176,6 +179,27 @@ function Index() {
   const highlightHelpRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const mediaFileRef = useRef<File | null>(null);
+
+  useEffect(() => {
+    let last = performance.now();
+    let frame = 0;
+    const loop = () => {
+      const now = performance.now();
+      const delta = now - last;
+      frame++;
+      if (delta > 100) {
+        console.warn(`[FREEZE-DETECT] Frame ${frame} took ${delta.toFixed(0)}ms`);
+      }
+      last = now;
+      if (frame % 60 === 0) {
+        console.log(`[HEARTBEAT] Frame ${frame}, time ${now.toFixed(0)}`);
+      }
+      raf.current = requestAnimationFrame(loop);
+    };
+    const raf = { current: requestAnimationFrame(loop) };
+    console.log("[MONITOR] Frame monitor started");
+    return () => cancelAnimationFrame(raf.current);
+  }, []);
 
   const normalizedText = text.trim();
   const textLines = useMemo(() => makeTextLines(normalizedText, format), [format, normalizedText]);
@@ -366,6 +390,105 @@ function Index() {
 
   const allClear = useMemo(() => isAllClear(safeZoneStatus), [safeZoneStatus]);
   const meta = FORMAT_META[format];
+
+  useEffect(() => {
+    if (!diagEnabled) return;
+    const src = document.querySelector<HTMLScriptElement>('script[type="module"]')?.src ?? "unknown";
+    const stamp = src.split("/").pop() ?? src;
+    setDiagBuildStamp(stamp);
+  }, [diagEnabled]);
+
+  useEffect(() => {
+    if (!diagEnabled) return;
+
+    const panel = document.querySelector<HTMLElement>(".bitmap-panel");
+    const vv = window.visualViewport;
+    let lastScrollLog = 0;
+
+    const log = (event: string, payload: Record<string, unknown> = {}) => {
+      console.info("[diag]", event, {
+        t: Date.now(),
+        innerHeight: window.innerHeight,
+        vvHeight: vv?.height ?? null,
+        ...payload,
+      });
+    };
+
+    const watchdog = (label: string) => {
+      const start = performance.now();
+      window.setTimeout(() => {
+        const lag = performance.now() - start;
+        if (lag > 500) {
+          log("main-thread-lag", { label, lag: Math.round(lag) });
+        }
+      }, 0);
+    };
+
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target as HTMLElement | null;
+      log("focusin", {
+        tag: target?.tagName ?? null,
+        id: target?.id ?? null,
+        className: target?.className ?? null,
+      });
+      watchdog("focusin");
+    };
+
+    const onFocusOut = (event: FocusEvent) => {
+      const target = event.target as HTMLElement | null;
+      log("focusout", {
+        tag: target?.tagName ?? null,
+        id: target?.id ?? null,
+        className: target?.className ?? null,
+      });
+    };
+
+    const onPanelScroll = () => {
+      const now = performance.now();
+      if (now - lastScrollLog < 180) return;
+      lastScrollLog = now;
+      log("panel-scroll", { scrollTop: panel?.scrollTop ?? null });
+    };
+
+    const onViewportResize = () => {
+      log("viewport-resize");
+    };
+
+    const onWindowError = (event: ErrorEvent) => {
+      log("window-error", {
+        message: event.message,
+        source: event.filename,
+        line: event.lineno,
+        col: event.colno,
+      });
+    };
+
+    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+      log("unhandledrejection", {
+        reason: String(event.reason),
+      });
+    };
+
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("focusout", onFocusOut);
+    panel?.addEventListener("scroll", onPanelScroll, { passive: true });
+    window.addEventListener("resize", onViewportResize);
+    vv?.addEventListener("resize", onViewportResize);
+    window.addEventListener("error", onWindowError);
+    window.addEventListener("unhandledrejection", onUnhandledRejection);
+
+    log("diag-start", { buildStamp: diagBuildStamp || "pending" });
+
+    return () => {
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("focusout", onFocusOut);
+      panel?.removeEventListener("scroll", onPanelScroll);
+      window.removeEventListener("resize", onViewportResize);
+      vv?.removeEventListener("resize", onViewportResize);
+      window.removeEventListener("error", onWindowError);
+      window.removeEventListener("unhandledrejection", onUnhandledRejection);
+    };
+  }, [diagBuildStamp, diagEnabled]);
 
   const toggleLock = (target: "text" | "media" | string) => {
     pushHistory();
@@ -749,6 +872,7 @@ function Index() {
                 onSelect={setHighlightFromSelection}
                 onKeyUp={setHighlightFromSelection}
                 onMouseUp={setHighlightFromSelection}
+                onFocus={() => console.log("[FOCUS] text textarea", performance.now().toFixed(1))}
                 rows={3}
                 placeholder="TYPE A WORD"
                 className="bitmap-input min-h-28 resize-none"
@@ -935,6 +1059,7 @@ function Index() {
                 <input
                   ref={gifInputRef}
                   defaultValue=""
+                  onFocus={() => console.log("[FOCUS] GIF input", performance.now().toFixed(1))}
                   onChange={queueGifSearch}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -1042,6 +1167,11 @@ function Index() {
             </button>
             {exportNotice && (
               <p className="text-[10px] uppercase tracking-[0.12em] opacity-80">{exportNotice}</p>
+            )}
+            {diagEnabled && (
+              <p className="text-[9px] tracking-[0.08em] opacity-60 break-all">
+                diag build: {diagBuildStamp || "pending"}
+              </p>
             )}
             <button
               className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em]"

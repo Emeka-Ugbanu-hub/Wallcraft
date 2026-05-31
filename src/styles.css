@@ -761,25 +761,30 @@
     html,
     body,
     #root {
-      min-height: 100dvh;
+      min-height: 100%;
+      overflow-x: hidden;
+      overflow-y: auto;
     }
 
     .bitmap-app,
     .bitmap-shell {
-      min-height: 100dvh;
+      min-height: 100svh;
+      height: auto;
+      overflow: visible;
     }
 
     .bitmap-panel {
-      height: 100dvh;
-      position: sticky;
-      top: 0;
+      position: relative;
+      top: auto;
+      height: auto;
       min-height: 0;
       overflow-y: auto;
       scrollbar-gutter: stable;
     }
 
     .bitmap-preview-pane {
-      min-height: 100dvh;
+      min-height: 100svh;
+      overflow: visible;
     }
 
     .bitmap-preview-wrap {
@@ -799,8 +804,9 @@
     html,
     body,
     #root {
-      min-height: 100%;
+      min-height: 100svh;
       overflow-x: hidden;
+      overflow-y: auto;
     }
 
     .bitmap-app {
@@ -811,7 +817,9 @@
     .bitmap-shell {
       display: flex;
       flex-direction: column;
-      min-height: 100vh;
+      min-height: 100svh;
+      height: auto;
+      overflow: visible;
     }
 
     .bitmap-panel {
@@ -944,15 +952,9 @@
       --mobile-preview-chrome: 42px;
     }
 
-    .bitmap-shell {
-      padding-top: calc(var(--mobile-preview-height) + var(--mobile-preview-chrome));
-    }
-
     .bitmap-preview-pane {
-      position: fixed;
+      position: sticky;
       top: 0;
-      left: 0;
-      right: 0;
       z-index: 30;
       height: calc(var(--mobile-preview-height) + var(--mobile-preview-chrome));
     }
